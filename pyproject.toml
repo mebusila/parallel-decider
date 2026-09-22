@@ -1,0 +1,11 @@
+[project]
+name = "parallel-decider"
+version = "0.0.1"
+description = "Local parallel decision experiments for AI agent routing"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
