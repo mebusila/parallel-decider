@@ -17,6 +17,8 @@ dev = [
     "jupyter>=1.0",
     "pandas>=2.2",
     "matplotlib>=3.9",
+    "sentence-transformers>=3.0",
+    "tqdm>=4.66",
 ]
 [build-system]
 requires = ["setuptools>=69"]
