@@ -24,29 +24,31 @@ class NLIBackend:
         state: str,
         questions: Sequence[BooleanQuestion],
     ) -> list[BooleanDecision]:
-        decisions: list[BooleanDecision] = []
+        if not questions:
+            return []
 
-        for question in questions:
-            inputs = self.tokenizer(
-                state,
-                question.hypothesis,
-                return_tensors="pt",
-                truncation=True,
+        states = [state] * len(questions)
+        hypotheses = [question.hypothesis for question in questions]
+
+        inputs = self.tokenizer(
+            states,
+            hypotheses,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+        )
+
+        with torch.inference_mode():
+            outputs = self.model(**inputs)
+
+        probabilities = torch.softmax(outputs.logits, dim=-1)
+
+        entailment_id = self.model.config.label2id["entailment"]
+
+        return [
+            BooleanDecision(
+                name=question.name,
+                probability=probabilities[index, entailment_id].item(),
             )
-
-            with torch.inference_mode():
-                outputs = self.model(**inputs)
-
-            probabilities = torch.softmax(outputs.logits, dim=-1)[0]
-
-            entailment_id = self.model.config.label2id["entailment"]
-            probability = probabilities[entailment_id].item()
-
-            decisions.append(
-                BooleanDecision(
-                    name=question.name,
-                    probability=probability,
-                )
-            )
-
-        return decisions
+            for index, question in enumerate(questions)
+        ]
