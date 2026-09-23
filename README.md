@@ -98,6 +98,86 @@ results = decider.decide_many(
 )
 ```
 
+## Command Line Usage
+
+The package also provides a small command-line interface.
+
+After installing the project:
+
+```bash
+pip install -e ".[dev]"
+```
+
+you can run:
+
+```bash
+parallel-decider \
+  "Inspect the repository history and run the failing tests."
+```
+
+Example output:
+
+```text
+* needs_filesystem     1.000
+* needs_git            1.000
+* needs_shell          1.000
+  needs_browser        0.000
+  needs_network        0.000
+  needs_database       0.000
+  needs_email          0.000
+  needs_calendar       0.000
+```
+
+An asterisk marks decisions whose probability meets the checkpoint threshold.
+
+To show only active capabilities:
+
+```bash
+parallel-decider \
+  --active-only \
+  "Find the latest email from the supplier and schedule a follow-up meeting."
+```
+
+Example output:
+
+```text
+* needs_network        1.000
+* needs_email          1.000
+* needs_calendar       1.000
+```
+
+A specific checkpoint can be selected with:
+
+```bash
+parallel-decider \
+  --checkpoint models/router-bge-base-v3.pt \
+  "Search the official Python documentation for asyncio task groups."
+```
+
+The execution device can also be selected explicitly:
+
+```bash
+parallel-decider \
+  --device cpu \
+  "Explain what git rebase does."
+```
+
+or:
+
+```bash
+parallel-decider \
+  --device cuda \
+  "Inspect the repository and run the tests."
+```
+
+By default, the CLI uses:
+
+```text
+models/router-bge-base-v3.pt
+```
+
+and automatically selects CUDA when available.
+
 ## Architecture
 
 The current router contains three main components.
