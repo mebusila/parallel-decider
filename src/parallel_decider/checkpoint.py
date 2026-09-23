@@ -1,3 +1,15 @@
+"""Checkpoint serialization for trained routing models.
+
+This module defines the persistent checkpoint format used by
+``parallel_decider``. A checkpoint stores the routing architecture metadata,
+training provenance, decision threshold, and learned weights required to
+reconstruct a trained router.
+
+The sentence encoder itself is not stored in the checkpoint. Instead, its
+model name is recorded so it can be loaded separately when the router is
+restored.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,6 +20,27 @@ import torch
 
 @dataclass(frozen=True)
 class RouterCheckpoint:
+    """Serializable description of a trained routing model.
+
+    Attributes:
+        format_version: Version of the checkpoint serialization format.
+        router_version: Human-readable version of the trained router.
+        encoder_model_name: Sentence-transformer model used to encode states
+            and capability hypotheses.
+        embedding_dim: Dimensionality produced by the sentence encoder.
+        projection_dim: Dimensionality of the learned routing projection.
+        hidden_dim: Hidden dimension used by the two-tower decision head.
+        routing_hypotheses: Mapping from capability names to natural-language
+            hypotheses.
+        training_dataset: Name of the dataset used to train the router.
+        training_examples: Number of training examples used.
+        training_steps: Number of optimizer updates performed during training.
+        training_seed: Random seed used during training.
+        threshold: Probability threshold used to mark a decision as active.
+        projection_state_dict: Learned parameters of the routing projection.
+        head_state_dict: Learned parameters of the decision head.
+    """
+
     format_version: int
     router_version: str
 
@@ -33,6 +66,15 @@ def save_checkpoint(
     checkpoint: RouterCheckpoint,
     path: str | Path,
 ) -> None:
+    """Serialize a routing checkpoint to disk.
+
+    Parent directories are created automatically when they do not already
+    exist.
+
+    Args:
+        checkpoint: Checkpoint metadata and model parameters to persist.
+        path: Destination file path.
+    """
     path = Path(path)
 
     path.parent.mkdir(
@@ -40,6 +82,8 @@ def save_checkpoint(
         exist_ok=True,
     )
 
+    # Store plain Python values and state dictionaries so loading remains
+    # independent from the original model objects.
     torch.save(
         {
             "format_version": checkpoint.format_version,
@@ -64,6 +108,17 @@ def save_checkpoint(
 def load_checkpoint(
     path: str | Path,
 ) -> RouterCheckpoint:
+    """Load a routing checkpoint from disk.
+
+    Checkpoint tensors are loaded onto CPU. They can later be moved to the
+    desired runtime device when the router is reconstructed.
+
+    Args:
+        path: Path to a serialized routing checkpoint.
+
+    Returns:
+        The reconstructed ``RouterCheckpoint`` instance.
+    """
     path = Path(path)
 
     data = torch.load(
