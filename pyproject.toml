@@ -23,3 +23,5 @@ dev = [
 [build-system]
 requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
+[project.scripts]
+parallel-decider = "parallel_decider.cli:main"
