@@ -161,16 +161,27 @@ def main() -> None:
     progress.close()
 
     checkpoint = RouterCheckpoint(
+        format_version=1,
+        router_version="bge-base-v3",
         encoder_model_name=MODEL_NAME,
         embedding_dim=embedding_dim,
         projection_dim=PROJECTION_DIM,
         hidden_dim=HIDDEN_DIM,
         routing_hypotheses=ROUTING_HYPOTHESES,
+        training_dataset="routing_v3_training",
+        training_examples=len(examples),
+        training_steps=MAX_STEPS,
+        training_seed=SEED,
+        threshold=0.5,
         projection_state_dict={
-            key: value.detach().cpu() for key, value in projection.state_dict().items()
+            key: value.detach().cpu()
+            for key, value
+            in projection.state_dict().items()
         },
         head_state_dict={
-            key: value.detach().cpu() for key, value in head.state_dict().items()
+            key: value.detach().cpu()
+            for key, value
+            in head.state_dict().items()
         },
     )
 

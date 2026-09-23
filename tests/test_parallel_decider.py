@@ -1,6 +1,7 @@
 import torch
 import pytest
 
+from parallel_decider.checkpoint import RouterCheckpoint, save_checkpoint
 from parallel_decider.parallel_decider import (
     ParallelDecider,
 )
@@ -230,6 +231,8 @@ def test_from_checkpoint_loads_and_decides(
     )
 
     checkpoint = RouterCheckpoint(
+        format_version=1,
+        router_version="test-router",
         encoder_model_name="fake-encoder",
         embedding_dim=4,
         projection_dim=2,
@@ -237,6 +240,11 @@ def test_from_checkpoint_loads_and_decides(
         routing_hypotheses={
             "needs_shell": ("This task requires shell execution."),
         },
+        training_dataset="test-dataset",
+        training_examples=1,
+        training_steps=10,
+        training_seed=42,
+        threshold=0.5,
         projection_state_dict={
             key: value.detach().cpu() for key, value in projection.state_dict().items()
         },
@@ -267,3 +275,125 @@ def test_from_checkpoint_loads_and_decides(
     assert len(decisions) == 1
     assert decisions[0].name == "needs_shell"
     assert 0.0 <= decisions[0].probability <= 1.0
+
+
+def test_active_decisions_respects_threshold():
+    encoder = FakeEncoder()
+
+    projection = RoutingProjection(
+        input_dim=4,
+        output_dim=2,
+    )
+
+    head = TwoTowerDecisionHead(
+        embedding_dim=2,
+        hidden_dim=4,
+    )
+
+    decider = ParallelDecider(
+        encoder=encoder,
+        projection=projection,
+        head=head,
+        routing_hypotheses={
+            "needs_shell": ("This task requires shell execution."),
+        },
+        device="cpu",
+        threshold=1.1,
+    )
+
+    assert decider.active_decisions("Run tests.") == []
+
+
+def test_from_checkpoint_exposes_metadata(
+    tmp_path,
+    monkeypatch,
+):
+    projection = RoutingProjection(
+        input_dim=4,
+        output_dim=2,
+    )
+
+    head = TwoTowerDecisionHead(
+        embedding_dim=2,
+        hidden_dim=4,
+    )
+
+    checkpoint = RouterCheckpoint(
+        format_version=1,
+        router_version="test-router",
+        encoder_model_name="fake-encoder",
+        embedding_dim=4,
+        projection_dim=2,
+        hidden_dim=4,
+        routing_hypotheses={
+            "needs_shell": ("This task requires shell execution."),
+        },
+        training_dataset="test-dataset",
+        training_examples=1,
+        training_steps=10,
+        training_seed=42,
+        threshold=0.75,
+        projection_state_dict={
+            key: value.detach().cpu() for key, value in projection.state_dict().items()
+        },
+        head_state_dict={
+            key: value.detach().cpu() for key, value in head.state_dict().items()
+        },
+    )
+
+    path = tmp_path / "router.pt"
+
+    save_checkpoint(
+        checkpoint,
+        path,
+    )
+
+    monkeypatch.setattr(
+        "parallel_decider.parallel_decider." "SentenceTransformer",
+        lambda *args, **kwargs: FakeEncoder(),
+    )
+
+    decider = ParallelDecider.from_checkpoint(
+        path,
+        device="cpu",
+    )
+
+    assert decider.threshold == 0.75
+    assert decider.router_version == "test-router"
+
+
+def test_metadata():
+    encoder = FakeEncoder()
+
+    projection = RoutingProjection(
+        input_dim=4,
+        output_dim=2,
+    )
+
+    head = TwoTowerDecisionHead(
+        embedding_dim=2,
+        hidden_dim=4,
+    )
+
+    decider = ParallelDecider(
+        encoder=encoder,
+        projection=projection,
+        head=head,
+        routing_hypotheses={
+            "needs_shell": "This task requires shell execution.",
+        },
+        device="cpu",
+        threshold=0.6,
+        router_version="test-router",
+        encoder_model_name="fake-encoder",
+    )
+
+    assert decider.metadata == {
+        "router_version": "test-router",
+        "encoder_model_name": "fake-encoder",
+        "threshold": 0.6,
+        "device": "cpu",
+        "capabilities": [
+            "needs_shell",
+        ],
+    }

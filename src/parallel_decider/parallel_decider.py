@@ -19,12 +19,18 @@ class ParallelDecider:
         head: TwoTowerDecisionHead,
         routing_hypotheses: dict[str, str],
         device: str,
+        threshold: float = 0.5,
+        router_version: str | None = None,
+        encoder_model_name: str | None = None,
     ) -> None:
         self.encoder = encoder
         self.projection = projection
         self.head = head
         self.routing_hypotheses = routing_hypotheses
         self.device = device
+        self.threshold = threshold
+        self.router_version = router_version
+        self.encoder_model_name = encoder_model_name
 
         self._question_names = list(routing_hypotheses.keys())
 
@@ -72,6 +78,9 @@ class ParallelDecider:
             head=head,
             routing_hypotheses=checkpoint.routing_hypotheses,
             device=resolved_device,
+            threshold=checkpoint.threshold,
+            router_version=checkpoint.router_version,
+            encoder_model_name=checkpoint.encoder_model_name,
         )
 
     def _encode_questions(
@@ -125,6 +134,16 @@ class ParallelDecider:
             )
         ]
 
+    def active_decisions(
+        self,
+        state: str,
+    ) -> list[BooleanDecision]:
+        return [
+            decision
+            for decision in self.decide(state)
+            if decision.probability >= self.threshold
+        ]
+
     def decide_many(
         self,
         states: list[str],
@@ -172,3 +191,26 @@ class ParallelDecider:
                 )
 
         return results
+
+    def active_decisions_many(
+        self,
+        states: list[str],
+    ) -> list[list[BooleanDecision]]:
+        return [
+            [
+                decision
+                for decision in decisions
+                if decision.probability >= self.threshold
+            ]
+            for decisions in self.decide_many(states)
+        ]
+
+    @property
+    def metadata(self) -> dict[str, object]:
+        return {
+            "router_version": self.router_version,
+            "encoder_model_name": self.encoder_model_name,
+            "threshold": self.threshold,
+            "device": self.device,
+            "capabilities": list(self._question_names),
+        }

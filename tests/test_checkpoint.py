@@ -9,6 +9,8 @@ from parallel_decider.checkpoint import (
 
 def test_checkpoint_roundtrip(tmp_path):
     checkpoint = RouterCheckpoint(
+        format_version=1,
+        router_version="test-router",
         encoder_model_name="test-encoder",
         embedding_dim=384,
         projection_dim=128,
@@ -16,6 +18,11 @@ def test_checkpoint_roundtrip(tmp_path):
         routing_hypotheses={
             "needs_shell": "This task requires shell execution.",
         },
+        training_dataset="test-dataset",
+        training_examples=10,
+        training_steps=100,
+        training_seed=42,
+        threshold=0.5,
         projection_state_dict={
             "weight": torch.tensor([1.0, 2.0]),
         },
@@ -51,3 +58,11 @@ def test_checkpoint_roundtrip(tmp_path):
         loaded.head_state_dict["bias"],
         torch.tensor([0.5]),
     )
+
+    assert loaded.format_version == 1
+    assert loaded.router_version == "test-router"
+    assert loaded.training_dataset == "test-dataset"
+    assert loaded.training_examples == 10
+    assert loaded.training_steps == 100
+    assert loaded.training_seed == 42
+    assert loaded.threshold == 0.5
